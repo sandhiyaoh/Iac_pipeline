@@ -1,0 +1,21 @@
+# Bicep compiled output
+*.json
+!bicepconfig.json
+!**/package.json
+!.github/**/*.json
+
+# Environment files
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Deployment state
+*.tfstate
+*.tfstate.backup

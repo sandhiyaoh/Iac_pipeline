@@ -1,0 +1,205 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/deploy-infrastructure.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  LOCATION: 'eastus2'
+
+jobs:
+  # ============================================================================
+  # Validate - Lint and build Bicep templates
+  # ============================================================================
+  validate:
+    name: Validate Bicep Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bicep Lint
+        run: az bicep lint --file infra/main.bicep
+
+      - name: Bicep Build
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
+
+      - name: Run Preflight Validation (Dev)
+        run: |
+          az deployment sub validate \
+            --location ${{ env.LOCATION }} \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/dev.bicepparam
+        env:
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+
+  # ============================================================================
+  # What-If - Preview infrastructure changes
+  # ============================================================================
+  what-if:
+    name: Preview Changes (What-If)
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: What-If Analysis
+        run: |
+          az deployment sub what-if \
+            --location ${{ env.LOCATION }} \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/dev.bicepparam \
+            --result-format FullResourcePayloads
+        env:
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+
+  # ============================================================================
+  # Deploy Dev - Automatic on push to main
+  # ============================================================================
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Infrastructure
+        run: |
+          az deployment sub create \
+            --location ${{ env.LOCATION }} \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/dev.bicepparam \
+            --name "dev-$(date +%Y%m%d-%H%M%S)"
+        env:
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+
+      - name: Show Deployment Outputs
+        run: |
+          az deployment sub show \
+            --name "$(az deployment sub list --location ${{ env.LOCATION }} --query '[0].name' -o tsv)" \
+            --query properties.outputs
+
+  # ============================================================================
+  # Deploy Staging - Manual trigger with approval
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging'
+    environment:
+      name: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Infrastructure
+        run: |
+          az deployment sub create \
+            --location ${{ env.LOCATION }} \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/staging.bicepparam \
+            --name "staging-$(date +%Y%m%d-%H%M%S)"
+        env:
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+
+  # ============================================================================
+  # Deploy Production - Manual trigger with approval
+  # ============================================================================
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod'
+    environment:
+      name: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: What-If (Production Safety Check)
+        run: |
+          az deployment sub what-if \
+            --location ${{ env.LOCATION }} \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/prod.bicepparam
+        env:
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+
+      - name: Deploy Infrastructure
+        run: |
+          az deployment sub create \
+            --location ${{ env.LOCATION }} \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/prod.bicepparam \
+            --name "prod-$(date +%Y%m%d-%H%M%S)"
+        env:
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+
+      - name: Show Deployment Outputs
+        run: |
+          az deployment sub show \
+            --name "$(az deployment sub list --location ${{ env.LOCATION }} --query '[0].name' -o tsv)" \
+            --query properties.outputs
