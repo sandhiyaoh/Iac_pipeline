@@ -19,7 +19,7 @@ param tags object
 // Variables
 // ============================================================================
 
-var keyVaultName = 'kv-${projectName}-${environment}-${uniqueString(resourceGroup().id)}'
+var keyVaultName = 'kv-${projectName}-${environment}-${substring(uniqueString(resourceGroup().id), 0, 4)}'
 
 // ============================================================================
 // Key Vault

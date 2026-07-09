@@ -34,6 +34,9 @@ param sqlDatabaseSku object
 @description('Tags to apply to all resources')
 param tags object = {}
 
+@description('Deployment timestamp for tagging')
+param deploymentTime string = utcNow('yyyy-MM-dd')
+
 // ============================================================================
 // Variables
 // ============================================================================
@@ -43,7 +46,7 @@ var defaultTags = union(tags, {
   environment: environment
   project: projectName
   managedBy: 'bicep'
-  lastDeployed: utcNow('yyyy-MM-dd')
+  lastDeployed: deploymentTime
 })
 
 // ============================================================================

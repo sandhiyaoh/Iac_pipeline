@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IaC Pipeline - Infrastructure Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #818cf8, #6366f1, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle { color: #94a3b8; font-size: 1.1rem; }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+        .badge-success { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); }
+        .badge-info { background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+        .card-icon {
+            font-size: 2rem;
+            margin-bottom: 0.8rem;
+        }
+        .card h3 { color: #f1f5f9; margin-bottom: 0.5rem; font-size: 1.1rem; }
+        .card p { color: #94a3b8; font-size: 0.9rem; line-height: 1.5; }
+        .card .status {
+            margin-top: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+        }
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .pipeline-section {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .pipeline-section h2 {
+            color: #f1f5f9;
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+        }
+        .pipeline-steps {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .step-circle {
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            background: rgba(99, 102, 241, 0.2);
+            border: 2px solid #6366f1;
+        }
+        .step-circle.done {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: #4ade80;
+        }
+        .step-label { font-size: 0.8rem; color: #94a3b8; }
+        .step-connector {
+            flex: 1;
+            height: 2px;
+            background: linear-gradient(90deg, #6366f1, #4ade80);
+            min-width: 30px;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-top: 1rem;
+        }
+        .tech-tag {
+            padding: 0.4rem 0.8rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #a5b4fc;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+        .footer a { color: #818cf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>&#9729; Infrastructure as Code Pipeline</h1>
+            <p class="subtitle">Azure Infrastructure deployed and managed entirely through Bicep templates</p>
+            <span class="badge badge-success">&#10003; Deployment Successful</span>
+            <span class="badge badge-info">Environment: Dev</span>
+        </header>
+
+        <div class="pipeline-section">
+            <h2>&#128640; CI/CD Pipeline Stages</h2>
+            <div class="pipeline-steps">
+                <div class="step">
+                    <div class="step-circle done">&#128221;</div>
+                    <span class="step-label">Lint</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step">
+                    <div class="step-circle done">&#9989;</div>
+                    <span class="step-label">Validate</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step">
+                    <div class="step-circle done">&#128269;</div>
+                    <span class="step-label">What-If</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step">
+                    <div class="step-circle done">&#127937;</div>
+                    <span class="step-label">Deploy</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-icon">&#127760;</div>
+                <h3>App Service</h3>
+                <p>Linux-based web application hosting with managed identity, HTTPS enforcement, and TLS 1.2.</p>
+                <div class="status"><span class="dot"></span> Running</div>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128451;</div>
+                <h3>Azure SQL Database</h3>
+                <p>Managed relational database with auditing enabled, firewall rules, and automated backups.</p>
+                <div class="status"><span class="dot"></span> Online</div>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128272;</div>
+                <h3>Key Vault</h3>
+                <p>Secrets management with RBAC authorization, soft delete protection, and network access controls.</p>
+                <div class="status"><span class="dot"></span> Secured</div>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128200;</div>
+                <h3>Application Insights</h3>
+                <p>Full observability with Log Analytics workspace, real-time monitoring, and performance diagnostics.</p>
+                <div class="status"><span class="dot"></span> Monitoring</div>
+            </div>
+        </div>
+
+        <div class="pipeline-section">
+            <h2>&#128736; Architecture Highlights</h2>
+            <div class="grid" style="margin-bottom:0">
+                <div>
+                    <h3 style="color:#f1f5f9; margin-bottom:0.8rem;">Modular Design</h3>
+                    <p style="color:#94a3b8; font-size:0.9rem; line-height:1.6;">
+                        Each Azure resource is a separate Bicep module — reusable, testable, and independently deployable. 
+                        The main template orchestrates module composition with explicit dependencies.
+                    </p>
+                </div>
+                <div>
+                    <h3 style="color:#f1f5f9; margin-bottom:0.8rem;">Multi-Environment</h3>
+                    <p style="color:#94a3b8; font-size:0.9rem; line-height:1.6;">
+                        Parameter files for Dev, Staging, and Production with different SKUs, scaling, 
+                        and security postures. Same code, different configurations.
+                    </p>
+                </div>
+            </div>
+            <div class="tech-stack">
+                <span class="tech-tag">Azure Bicep</span>
+                <span class="tech-tag">GitHub Actions</span>
+                <span class="tech-tag">OIDC Authentication</span>
+                <span class="tech-tag">Managed Identity</span>
+                <span class="tech-tag">What-If Analysis</span>
+                <span class="tech-tag">Multi-Environment</span>
+                <span class="tech-tag">Azure Resource Manager</span>
+                <span class="tech-tag">Infrastructure as Code</span>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Deployed via Bicep IaC Pipeline | 
+                <a href="https://github.com/sandhiyaoh/Iac_pipeline" target="_blank">View Source on GitHub</a>
+            </p>
+            <p style="margin-top:0.5rem;">Built by Sandhiya | Azure for Students</p>
+        </div>
+    </div>
+</body>
+</html>

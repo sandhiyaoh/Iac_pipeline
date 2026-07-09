@@ -1,7 +1,7 @@
 using '../main.bicep'
 
 param environment = 'dev'
-param location = 'eastus2'
+param location = 'southeastasia'
 param projectName = 'iacpipeline'
 param sqlAdminLogin = 'sqladmin'
 param sqlAdminPassword = readEnvironmentVariable('SQL_ADMIN_PASSWORD', '')
